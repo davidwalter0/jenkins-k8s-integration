@@ -1,0 +1,57 @@
+#!/bin/bash
+set +x
+
+git clone git@github.com:CiscoCloud/falcon-testing-deployapi.git
+cd 
+kubectl --kubeconfig=${KUBECONFIG} delete pod k8s-git-repo-test || true
+kubectl --kubeconfig=${KUBECONFIG} create -f - <<EOF
+apiVersion: v1
+kind: Pod
+metadata:
+  name: k8s-git-repo-test
+  namespace: default
+  labels:
+    app: k8s-git-repo-test
+spec:
+  restartPolicy: Never
+  containers:
+  - name: k8s-busybox-pull-data
+    image: busybox
+    imagePullPolicy: IfNotPresent
+    args:
+    - /bin/bash
+    -  -c
+    - "while ! [[ -e ${FILE} ]]; do sleep 1; done; /bin/cat ${FILE}"
+    volumeMounts:
+    - mountPath: /repo
+      name: git-repo-data
+      readOnly: false
+    env:
+    - name: FILE
+      value: /repo/README.md
+  - name: git-monitor
+    privileged: true
+    image: ubuntu-15.04:dind
+    imagePullPolicy: IfNotPresent
+    args:
+    - git
+    - clone
+    - ${GIT_REPO}
+    - /repo
+    env:
+    - name: GIT_REPO
+      value: http://github.com/davidwalter0/repo.git
+    volumeMounts:
+    - mountPath: /repo
+      name: git-repo-data
+  volumes:
+  - name: git-repo-data
+    emptyDir: {}
+EOF
+
+while ! kubectl --kubeconfig=${KUBECONFIG} get pods | grep k8s-busybox-pull-data 2>&1 | grep -q "Running" ; do 
+   sleep 1
+done
+sleep 1  
+kubectl --kubeconfig=${KUBECONFIG} logs k8s-git-repo-test k8s-busybox-pull-data
+echo 'Done!'

@@ -1,0 +1,5 @@
+{
+	"ImportPath": "github.com/davidwalter0/jenkins-k8s-integration/go-builder",
+	"GoVersion": "go1.5.1",
+	"Deps": []
+}
